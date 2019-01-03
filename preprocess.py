@@ -85,18 +85,19 @@ def make_data():
                 with_char = '{' + EOS + '}'
                 whole_char[file].append([char_vocab.get_index(c) for c in with_char])
 
+    word_maxlen += 2
     print ('Word Max Length : ', word_maxlen) # {multibillion-dollar}
     print ('Vocabulary set size : ', len(word_vocab.token2idx))
     print ('Character set size : ', len(char_vocab.token2idx))
-    print ('Token size : ', len(whole_word['train']))
+    print ('Token size : %d\n' % (len(whole_word['train'])))
 
     return word_vocab, char_vocab, whole_word, whole_char, word_maxlen
 
-def embedding_matrix(word_data, char_data, max_word_len):
+def embedding_matrix(word_data, char_data, word_maxlen):
     # --------------------------- Input --------------------------- #
     # word_data : train, valid, test data word index
     # char_data : train, valid, test data character index per word
-    # max_word_len : maximum of total words length
+    # word_maxlen : maximum of total words length
 
     # --------------------------- Output --------------------------- #
     # word_matrix : be used to lookup word embedding matrix
@@ -105,8 +106,9 @@ def embedding_matrix(word_data, char_data, max_word_len):
     word_matrix = dict()
 
     for file in FLAGS.data_file:
+        # generate embedding matrix
         word_matrix[file] = np.array(word_data[file], dtype=np.float32)
-        char_matrix[file] = np.zeros([len(char_data[file]), max_word_len+2], dtype=np.int32)
+        char_matrix[file] = np.zeros([len(char_data[file]), word_maxlen], dtype=np.int32)
 
         for idx, char_list in enumerate(char_data[file]):
             char_matrix[file][idx, :len(char_list)] = char_list
@@ -118,11 +120,73 @@ def embedding_matrix(word_data, char_data, max_word_len):
     print ('Shape of Train Character matrix : ', char_matrix['train'].shape)
     print ('Shape of Valid Character matrix : ', char_matrix['valid'].shape)
     print ('Shape of Test Character matrix  : ', char_matrix['test'].shape)
-
+    print ()
     return word_matrix, char_matrix
+
+def batch_loader(word_matrix, char_matrix, word_maxlen):
+
+    # --------------------------- Input --------------------------- #
+    # word_matrix : be used to lookup word embedding matrix
+    # char_matrix : be used to lookup character embedding matrix
+    # word_maxlen : maximum of total words length
+
+    # --------------------------- Output --------------------------- #
+    # word_matrix : be used to lookup word embedding matrix (reduced length)
+    # char_matrix : be used to lookup character embedding matrix (reduced length)
+    # label_data : train, valid, test target data
+
+    label_data = dict()
+
+    for file in FLAGS.data_file:
+
+        word_length   = len(word_matrix[file])
+        total_size    = FLAGS.batch_size * FLAGS.trunc_step
+        reduced_length = word_length // total_size * total_size
+
+        # reduce the original word, character, labeled data
+        word_matrix[file] = word_matrix[file][:reduced_length]
+        char_matrix[file] = char_matrix[file][:reduced_length]
+
+        label_data[file] = word_matrix[file].copy()
+        label_data[file] = label_data[file].astype(np.int32)
+        label_data[file][:-1] = label_data[file][1:]
+        label_data[file][-1] = word_matrix[file][0]
+
+        assert len(label_data[file]) == len(word_matrix[file])
+        print ("----- check label answer of %s -----" % (file))
+        print (label_data[file])
+        print (word_matrix[file])
+
+        print ("----- check data length of %s -----" % (file))
+        print ((word_matrix[file].shape), (label_data[file].shape), (char_matrix[file].shape))
+
+        char_matrix[file] = np.reshape(char_matrix[file], newshape=(FLAGS.batch_size, -1, FLAGS.trunc_step, word_maxlen))
+        char_matrix[file] = np.transpose(char_matrix[file], axes=(1,0,2,3))
+
+        label_data[file]  = np.reshape(label_data[file], newshape=(FLAGS.batch_size, -1, FLAGS.trunc_step))
+        label_data[file]  = np.transpose(label_data[file], axes=(1,0,2))
+
+        print ("----- check convolutional shape of %s -----" % (file))
+        print (char_matrix[file].shape, label_data[file].shape)
+        print ()
+
+    return word_matrix, char_matrix, label_data
+
+def one_time_step(char_matrix, label_data):
+
+    zip_dict = dict()
+
+    for file in FLAGS.data_file:
+        char_list  = list(char_matrix[file])
+        label_list = list(label_data[file])
+        zip_dict[file] = list(zip(char_list, label_list))
+
+    return char_list, label_list, zip_dict
 
 def preprocessing(FLAGS):
     word_vocab, char_vocab, whole_word, whole_char, word_maxlen = make_data()
     word_matrix, char_matrix = embedding_matrix(whole_word, whole_char, word_maxlen)
+    word_matrix, char_matrix, label_data = batch_loader(word_matrix, char_matrix, word_maxlen)
+    char_list, label_list, zip_dict = one_time_step(char_matrix, label_data)
 
-    return word_vocab, char_vocab, word_matrix, char_matrix
+    return word_vocab, char_vocab, word_matrix, char_matrix, label_data, word_maxlen, char_list, label_list, zip_dict
