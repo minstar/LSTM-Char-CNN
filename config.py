@@ -9,6 +9,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string('f', '', 'kernel')
 flags.DEFINE_string('data_path', './dataset/ptb/', 'English Penn Treebank dataset directory')
+flags.DEFINE_string('load_model', None, 'If directory of model parameters is exsit, then get the parameters')
 
 flags.DEFINE_list('data_file', ['train', 'valid', 'test'], 'PTB dataset lists')
 flags.DEFINE_list('kernel_features', [25, 50, 75, 100, 125, 150], 'kernel size as small data')
@@ -21,6 +22,9 @@ flags.DEFINE_integer('epoch', 25, 'train epoch size')
 flags.DEFINE_integer('LSTM_hidden', 300, 'number of LSTM hidden units')
 flags.DEFINE_integer('LSTM_layers', 2, 'number of LSTM layers')
 flags.DEFINE_integer('Highway_layers', 1, 'number of Highway layers')
+flags.DEFINE_integer('verbose', 10, 'number of how many times to print loss')
 
 flags.DEFINE_float('learning_rate', 1.0, 'initial learning rate of model')
 flags.DEFINE_float('dropout', 0.5, 'initial dropout of LSTM layers')
+flags.DEFINE_float('grad_norm', 5.0, 'initial gradient normalize value')
+flags.DEFINE_float('lr_decay', 0.5, 'halved learning rate when perplexity does not decrease by more than 1.0')

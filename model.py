@@ -3,9 +3,16 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import tensorflow as tf
-import easydict
 
 from config import *
+
+class adict(dict):
+    ''' Attribute dictionary - a convenience data structure, similar to SimpleNamespace in python 3.3
+        One can use attributes to read/write dictionary content.
+    '''
+    def __init__(self, *av, **kav):
+        dict.__init__(self, *av, **kav)
+        self.__dict__ = self
 
 def conv2d(input_char, filter_num, filter_width, name="conv2d"):
     # --------------------------- Input --------------------------- #
@@ -86,7 +93,6 @@ def model_graph(word_maxlen=None, char_size=51, word_size=10000):
 
     # --------------------------- Output --------------------------- #
 
-    esdict = easydict.EasyDict()
     input_char = tf.placeholder(tf.int32, shape=[FLAGS.batch_size, FLAGS.trunc_step, word_maxlen], name="input")
 
     # --------------------------- Embedding Characters --------------------------- #
@@ -125,14 +131,41 @@ def model_graph(word_maxlen=None, char_size=51, word_size=10000):
                 scope.reuse_variables() # not to make new set of variables
             logits.append(Affine_Transformation(output, word_size))
 
-    esdict.input = input_char
-    esdict.char_embedding_padded = char_embedding_padded
-    esdict.input_embedded = input_embedded
-    esdict.input_highway = input_highway
-    esdict.output_highway = output_highway
-    esdict.lstm_initial_state = initial_state
-    esdict.lstm_end_state = end_state
-    esdict.lstm_outputs = outputs
-    esdict.logits = logits
 
-    return esdict
+    return adict(input = input_char,
+                char_embedding_padded = char_embedding_padded,
+                input_embedded = input_embedded,
+                input_highway = input_highway,
+                output_highway = output_highway,
+                lstm_initial_state = initial_state,
+                lstm_end_state = end_state,
+                lstm_outputs = outputs,
+                logits = logits)
+
+
+def loss_fn(logits):
+    with tf.variable_scope('Loss_function'):
+        target = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size, FLAGS.trunc_step], name='target_')
+        targets = [tf.squeeze(data, [1]) for data in tf.split(target, FLAGS.trunc_step, axis=1)]
+        loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=targets, logits=logits), name='loss_')
+
+    return adict(targets=target,
+                loss = loss)
+
+
+def train_fn(loss_dict):
+    global_step = tf.get_variable('global_step', initializer=tf.constant(0), trainable=False)
+
+    with tf.variable_scope('Training'):
+        learning_rate = tf.Variable(FLAGS.learning_rate, trainable=False, name='learning_rate_')
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+
+        train_var = tf.trainable_variables()
+        grads, _ = tf.clip_by_global_norm(tf.gradients(loss_dict, train_var), clip_norm=FLAGS.grad_norm)
+        train_op = optimizer.apply_gradients(zip(grads, train_var), global_step=global_step)
+
+    return adict(learning_rate = learning_rate,
+                global_step = global_step,
+                grads=grads,
+                train_var = train_var,
+                train_op = train_op)
