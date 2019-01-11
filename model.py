@@ -71,7 +71,7 @@ def Highway(input_highway, bias=-2.0, scope="Highway"):
     with tf.variable_scope(scope):
         for i in range(FLAGS.Highway_layers):
             t = tf.sigmoid(Affine_Transformation(input_highway, output_dim, scope='Highway_transgate_%d' % i) + bias)
-            g = tf.nn.relu(Affine_Transformation(input_highway, output_dim, scope='Highway_MLP_%d'%i) + bias)
+            g = tf.nn.relu(Affine_Transformation(input_highway, output_dim, scope='Highway_MLP_%d'%i))
 
             z = t * g + (1.0 - t) * input_highway
 
@@ -145,19 +145,19 @@ def model_graph(word_maxlen=None, char_size=51, word_size=10000):
 
 def loss_fn(logits):
     with tf.variable_scope('Loss_function'):
-        target = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size, FLAGS.trunc_step], name='target_')
+        target = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size, FLAGS.trunc_step], name='targets')
         targets = [tf.squeeze(data, [1]) for data in tf.split(target, FLAGS.trunc_step, axis=1)]
-        loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=targets, logits=logits), name='loss_')
+        loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=targets, logits=logits), name='loss')
 
     return adict(targets=target,
                 loss = loss)
 
 
 def train_fn(loss_dict):
-    global_step = tf.get_variable('global_step', initializer=tf.constant(0), trainable=False)
+    global_step = tf.Variable(0, name='global_step', trainable=False)
 
     with tf.variable_scope('Training'):
-        learning_rate = tf.Variable(FLAGS.learning_rate, trainable=False, name='learning_rate_')
+        learning_rate = tf.Variable(FLAGS.learning_rate, trainable=False, name='learning_rate')
         optimizer = tf.train.GradientDescentOptimizer(learning_rate)
 
         train_var = tf.trainable_variables()

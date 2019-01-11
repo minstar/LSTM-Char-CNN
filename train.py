@@ -10,7 +10,7 @@ from preprocess import *
 from config import *
 from model import *
 
-def train():
+def main(_):
     # --------------------------- import data --------------------------- #
     print ('----- Importing all Data -----')
     word_vocab, char_vocab, word_matrix, char_matrix, label_data,\
@@ -38,7 +38,8 @@ def train():
         # --------------------------- save model --------------------------- #
         saver = tf.train.Saver(max_to_keep=10)
         if FLAGS.load_model:
-            saver.restore(sess, FLAGS.load_model)
+            #saver.restore(sess, FLAGS.load_model)
+            saver.restore(sess, tf.train.latest_checkpoint('./train_dir/'))
             print ('Loaded model and saved at global step', tr_model.global_step.eval())
         else:
             sess.run(tf.global_variables_initializer())
@@ -62,19 +63,19 @@ def train():
 
             for x, y in iter_(zip_dict, 'train'):
                 input_ = {tr_model.input : x, tr_model.targets:y, tr_model.lstm_initial_state:tr_lstm_state}
-                loss_, lstm_state_, global_step_, train_op_, char_embedded_pad_ = sess.run([tr_model.loss,
+                loss, lstm_state, global_step, train_op, char_embedded_pad = sess.run([tr_model.loss,
                                                                                           tr_model.lstm_end_state,
                                                                                           tr_model.global_step,
                                                                                           tr_model.train_op,
                                                                                           tr_model.char_embedding_padded], input_)
 
 
-                train_loss += (loss_ - train_loss) / FLAGS.batch_size
+                train_loss += (loss - train_loss) / FLAGS.batch_size
                 tr_count += 1
 
                 if tr_count % FLAGS.verbose == 0:
                     print ('epoch : %d, step : %d / %d, perplexity : %.3f, current_loss : %.3f, average_loss : %.3f,  times : %.3f' % \
-                           (epoch, global_step_, len(zip_dict['train']), np.exp(loss_), loss_, train_loss, time.time() - epoch_start))
+                           (epoch, global_step, FLAGS.epoch*len(zip_dict['train']), np.exp(loss), loss, train_loss, time.time() - epoch_start))
 
             print ('epoch : %d, time : %.3f' % (epoch, time.time() - epoch_start))
 
@@ -82,19 +83,19 @@ def train():
             va_lstm_state = sess.run(va_model.lstm_initial_state)
             for x, y in iter_(zip_dict, 'valid'):
                 input_ = {va_model.input : x, va_model.targets:y, va_model.lstm_initial_state:va_lstm_state}
-                loss_, lstm_state_ = sess.run([va_model.loss, va_model.lstm_end_state], input_)
+                loss, lstm_state_ = sess.run([va_model.loss, va_model.lstm_end_state], input_)
 
                 va_count += 1
                 valid_loss += loss / len(zip_dict['valid'])
 
                 if va_count % FLAGS.verbose == 0:
-                    print (" perplexity : %.3f, validation loss : %.3f, average_loss : %.3f " % (np.exp(loss_), loss_, valid_loss))
+                    print (" perplexity : %.3f, validation loss : %.3f, average_loss : %.3f " % (np.exp(loss), loss, valid_loss))
 
             saver.save(sess, '%s/epoch%d_%.3f.model' % ('./train_dir', epoch, valid_loss))
             print ('Successfully saved model')
 
             # --------------------------- decay learning rate --------------------------- #
-            if not best_va_loss and np.exp(best_va_loss) - np.exp(valid_loss) > 1.0:
+            if best_va_loss is not None and np.exp(best_va_loss) - np.exp(valid_loss) > 1.0:
                 print ('Needs learning rate decay, perplexity does not decrease by more than 1.0')
                 cur_lr = sess.run(tr_model.learning_rate)
                 print ('Current learning rate : ', cur_lr)
@@ -112,7 +113,7 @@ def train():
             summary = tf.Summary(value=[tf.Summary.Value(tag="Training_loss", simple_value=train_loss),
                                         tf.Summary.Value(tag='Validation_loss', simple_value=valid_loss)])
 
-            summary_writer.add_summary(summary, global_step_)
+            summary_writer.add_summary(summary, global_step)
 
 if __name__ == "__main__":
     tf.app.run()
