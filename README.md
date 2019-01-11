@@ -11,4 +11,5 @@ Version Type
 
 Issues
 1. selecting loss operation
-2. selecting model bias term
+2. selecting model bias term - Highway bias term has removed (doesn't exist in loaded model parameters)
+3. zero padding confusing in scatter_update
