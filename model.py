@@ -118,7 +118,7 @@ def model_graph(word_maxlen=None, char_size=51, word_size=10000):
     output_highway = tf.reshape(output_highway, shape=[FLAGS.batch_size, FLAGS.trunc_step, -1]) # (20, 35, 525)
     input_lstm = [tf.squeeze(data, [1]) for data in tf.split(output_highway, FLAGS.trunc_step, axis=1)] # (20, 525) * 35
 
-    stacked_lstm = tf.contrib.rnn.MultiRNNCell([lstm_cell() for _ in range(FLAGS.LSTM_layers)])
+    stacked_lstm = tf.contrib.rnn.MultiRNNCell([lstm_cell() for _ in range(FLAGS.LSTM_layers)]) # state_is_tuple=True
     initial_state = stacked_lstm.zero_state(FLAGS.batch_size, tf.float32)
 
     outputs, end_state = tf.contrib.rnn.static_rnn(stacked_lstm, inputs=input_lstm, initial_state=initial_state, dtype=tf.float32)

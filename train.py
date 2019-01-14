@@ -11,13 +11,18 @@ from config import *
 from model import *
 
 def main(_):
+    # for gpu version with gpu:1
+    gpu_config = tf.ConfigProto(device_count={'GPU':1})
+    gpu_config.gpu_options.allow_growth = True
+    gpu_config.gpu_options.per_process_gpu_memory_fraction = 1
+
     # --------------------------- import data --------------------------- #
     print ('----- Importing all Data -----')
     word_vocab, char_vocab, word_matrix, char_matrix, label_data,\
     word_maxlen, _, _, zip_dict = preprocessing(FLAGS)
 
     # --------------------------- build training graph --------------------------- #
-    with tf.Graph().as_default(), tf.Session() as sess:
+    with tf.Graph().as_default(), tf.Session(config=gpu_config) as sess:
         tf.set_random_seed(1170)
         np.random.seed(seed=1170)
 
@@ -86,32 +91,34 @@ def main(_):
                 loss, lstm_state_ = sess.run([va_model.loss, va_model.lstm_end_state], input_)
 
                 va_count += 1
-                valid_loss += loss / len(zip_dict['valid'])
+                valid_loss += loss
+                #valid_loss += loss / len(zip_dict['valid'])
 
                 if va_count % FLAGS.verbose == 0:
-                    print (" perplexity : %.3f, validation loss : %.3f, average_loss : %.3f " % (np.exp(loss), loss, valid_loss))
+                    print (" perplexity : %.3f, validation loss : %.3f" % (np.exp(loss), loss))
 
-            saver.save(sess, '%s/epoch%d_%.3f.model' % ('./train_dir', epoch, valid_loss))
+            print ('perplexity : %.3f, average_loss :%.3f' % (np.exp(valid_loss / va_count), valid_loss / va_count))
+            saver.save(sess, '%s/epoch%d_%.3f.model' % ('./train_dir', epoch, valid_loss/va_count))
             print ('Successfully saved model')
 
             # --------------------------- decay learning rate --------------------------- #
-            if best_va_loss is not None and np.exp(best_va_loss) - np.exp(valid_loss) > 1.0:
+            if best_va_loss is not None and np.exp(best_va_loss) - np.exp(valid_loss / va_count) > 1.0:
                 print ('Needs learning rate decay, perplexity does not decrease by more than 1.0')
                 cur_lr = sess.run(tr_model.learning_rate)
                 print ('Current learning rate : ', cur_lr)
                 cur_lr *= FLAGS.lr_decay
 
-                if cur_lr < 1e-6:
+                if cur_lr < 1e-8:
                     break
 
                 sess.run(tr_model.learning_rate.assign(cur_lr))
                 print ('Halved learning rate : ', cur_lr)
             else:
-                best_va_loss = valid_loss
+                best_va_loss = valid_loss / va_count
 
             # --------------------------- Summary Write --------------------------- #
             summary = tf.Summary(value=[tf.Summary.Value(tag="Training_loss", simple_value=train_loss),
-                                        tf.Summary.Value(tag='Validation_loss', simple_value=valid_loss)])
+                                        tf.Summary.Value(tag='Validation_loss', simple_value=valid_loss / va_count)])
 
             summary_writer.add_summary(summary, global_step)
 
