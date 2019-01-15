@@ -43,8 +43,8 @@ def main(_):
         # --------------------------- save model --------------------------- #
         saver = tf.train.Saver(max_to_keep=10)
         if FLAGS.load_model:
-            #saver.restore(sess, FLAGS.load_model)
-            saver.restore(sess, tf.train.latest_checkpoint('./train_dir/'))
+            saver.restore(sess, FLAGS.load_model)
+            #saver.restore(sess, tf.train.latest_checkpoint('./train_dir/'))
             print ('Loaded model and saved at global step', tr_model.global_step.eval())
         else:
             sess.run(tf.global_variables_initializer())
@@ -102,13 +102,13 @@ def main(_):
             print ('Successfully saved model')
 
             # --------------------------- decay learning rate --------------------------- #
-            if best_va_loss is not None and np.exp(best_va_loss) - np.exp(valid_loss / va_count) > 1.0:
+            if best_va_loss is not None and np.exp(valid_loss / va_count) > np.exp(best_va_loss) - 1.0 :
                 print ('Needs learning rate decay, perplexity does not decrease by more than 1.0')
                 cur_lr = sess.run(tr_model.learning_rate)
                 print ('Current learning rate : ', cur_lr)
                 cur_lr *= FLAGS.lr_decay
 
-                if cur_lr < 1e-8:
+                if cur_lr < 1.e-5:
                     break
 
                 sess.run(tr_model.learning_rate.assign(cur_lr))
