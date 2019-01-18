@@ -1,5 +1,9 @@
 from __future__ import print_function
 
+# Warning Filter
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 import collections
 import tensorflow as tf
 import numpy as np
@@ -124,7 +128,6 @@ def embedding_matrix(word_data, char_data, word_maxlen):
     return word_matrix, char_matrix
 
 def batch_loader(word_matrix, char_matrix, word_maxlen):
-
     # --------------------------- Input --------------------------- #
     # word_matrix : be used to lookup word embedding matrix
     # char_matrix : be used to lookup character embedding matrix
@@ -172,21 +175,42 @@ def batch_loader(word_matrix, char_matrix, word_maxlen):
 
     return word_matrix, char_matrix, label_data
 
-def one_time_step(char_matrix, label_data):
+def zip_file(char_matrix, label_data):
+    # --------------------------- Input --------------------------- #
+    # char_matrix : be used to lookup character embedding matrix
+    # label_data : train, valid, test target data
 
+    # --------------------------- Output --------------------------- #
+    # zip_dict : zip of character and label list
     zip_dict = dict()
+    total_zip_list = list()
+    idx = 0
 
     for file in FLAGS.data_file:
         char_list  = list(char_matrix[file])
         label_list = list(label_data[file])
         zip_dict[file] = list(zip(char_list, label_list))
+        if idx < 2:
+            total_zip_list.extend(list(zip(char_list, label_list)))
+        idx += 1
 
-    return char_list, label_list, zip_dict
+    return char_list, label_list, zip_dict, total_zip_list
+
+def iter_(zip_dict, file_name):
+    # for training with train file
+    for x, y in zip_dict[file_name]:
+        yield x, y
+
+def total_iter_(total_zip_list):
+    # for training with train + valid file
+    for x, y in total_zip_list:
+        yield x, y
 
 def preprocessing(FLAGS):
     word_vocab, char_vocab, whole_word, whole_char, word_maxlen = make_data()
     word_matrix, char_matrix = embedding_matrix(whole_word, whole_char, word_maxlen)
     word_matrix, char_matrix, label_data = batch_loader(word_matrix, char_matrix, word_maxlen)
-    char_list, label_list, zip_dict = one_time_step(char_matrix, label_data)
+    char_list, label_list, zip_dict, total_zip_list = zip_file(char_matrix, label_data)
 
-    return word_vocab, char_vocab, word_matrix, char_matrix, label_data, word_maxlen, char_list, label_list, zip_dict
+    return word_vocab, char_vocab, word_matrix, char_matrix, label_data, \
+            word_maxlen, char_list, label_list, zip_dict, total_zip_list
