@@ -9,7 +9,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string('f', '', 'kernel')
 flags.DEFINE_string('data_path', './dataset/ptb/', 'English Penn Treebank dataset directory')
-flags.DEFINE_string('load_model', None, 'If filename of model parameters is exist, then get the parameters')
+flags.DEFINE_string('load_model', './train_dir/epoch23_4.508.model', 'If filename of model parameters is exist, then get the parameters')
 
 flags.DEFINE_list('data_file', ['train', 'valid', 'test'], 'PTB dataset lists')
 flags.DEFINE_list('kernel_features', [25, 50, 75, 100, 125, 150], 'kernel size as small data')
