@@ -69,9 +69,6 @@ def make_data():
 
             for one_line in line:
 
-                word_list = list()
-                char_list = list()
-
                 for word in one_line.split():
                     # word token into dictionary
                     whole_word[file].append(word_vocab.new_token(word))
