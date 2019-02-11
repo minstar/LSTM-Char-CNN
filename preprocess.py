@@ -9,6 +9,7 @@ import tensorflow as tf
 import numpy as np
 
 from config import *
+from sklearn.utils import shuffle
 
 class Vocab:
     def __init__(self, token2idx=None, idx2token=None):
@@ -166,11 +167,19 @@ def batch_loader(word_matrix, char_matrix, word_maxlen):
         label_data[file]  = np.reshape(label_data[file], newshape=(FLAGS.batch_size, -1, FLAGS.trunc_step))
         label_data[file]  = np.transpose(label_data[file], axes=(1,0,2))
 
+        #char_matrix[file], label_data[file] = shuffle(char_matrix[file], label_data[file])
+
         print ("----- check convolutional shape of %s -----" % (file))
         print (char_matrix[file].shape, label_data[file].shape)
         print ()
 
     return word_matrix, char_matrix, label_data
+
+def random_shuffle(char_matrix, label_data):
+    for file in FLAGS.data_file:
+        char_matrix[file], label_data[file] = shuffle(char_matrix[file], label_data[file])
+
+    return char_matrix, label_data
 
 def zip_file(char_matrix, label_data):
     # --------------------------- Input --------------------------- #
@@ -187,8 +196,10 @@ def zip_file(char_matrix, label_data):
         char_list  = list(char_matrix[file])
         label_list = list(label_data[file])
         zip_dict[file] = list(zip(char_list, label_list))
+
         if idx < 2:
             total_zip_list.extend(list(zip(char_list, label_list)))
+
         idx += 1
 
     return char_list, label_list, zip_dict, total_zip_list

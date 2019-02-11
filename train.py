@@ -61,6 +61,10 @@ def main(_):
 
         for epoch in range(FLAGS.epoch):
             epoch_start = time.time()
+
+            random_char_matrix, random_label_data = random_shuffle(char_matrix, label_data)
+            _, _, zip_dict, total_zip_list = zip_file(random_char_matrix, random_label_data)
+
             tr_count = 0
             va_count = 0
             train_loss = 0.0
@@ -93,6 +97,7 @@ def main(_):
 
             # --------------------------- evaluate --------------------------- #
             va_lstm_state = sess.run(va_model.lstm_initial_state)
+
             for x, y in iter_(zip_dict, 'valid'):
                 input_ = {va_model.input : x, va_model.targets:y, va_model.lstm_initial_state:va_lstm_state}
                 loss, lstm_state_ = sess.run([va_model.loss, va_model.lstm_end_state], input_)
